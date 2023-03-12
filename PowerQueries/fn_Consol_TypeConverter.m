@@ -1,3 +1,5 @@
+// I DONT THINK THIS FUNCTION IS NEEDED - CAN SIMPLY USE AN EXPRESSION.EVALUATE  ON THE TEXT
+
 (TypeAsText as text)=>
 let
     
@@ -27,6 +29,6 @@ let
     ReturnValue = if Record.HasFields(ConverterRecord, TypeAsText) then
             Record.Field(ConverterRecord, TypeAsText)
         else
-            fn_RaiseConsolidationError("Incorrect input type " & TypeAsText)
+            fn_Consol_RaiseError("Incorrect input type " & TypeAsText)
 in
     ReturnValue

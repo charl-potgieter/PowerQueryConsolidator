@@ -1,14 +1,8 @@
 let
 
-    AllowedConsolidateAcross = {"Current workbook", "Another workbook", "Folder"},
-    
-
     CustomFunctionType = type function (
-        ConsolidateAcross  as (type text meta[
-            Documentation.AllowedValues = AllowedConsolidateAcross
-            ]), 
         DataAccessFunction as (type text meta[
-            Documentation.AllowedValues = ConsolidationDataAccessMethods
+            Documentation.AllowedValues = Consol_DataAccessMethods
             ]), 
         optional SourceFolder as (type text), 
         optional FilterFileNameFrom as (type text),
@@ -25,7 +19,7 @@ let
         ],
 
 
-    ReturnValue = Value.ReplaceType(fn_ConsolidationRaw, CustomFunctionType)
+    ReturnValue = Value.ReplaceType(fn_Consol_Raw, CustomFunctionType)
 
 
 in
