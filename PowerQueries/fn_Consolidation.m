@@ -1,12 +1,10 @@
 let
 
     CustomFunctionType = type function (
-        DataAccessFunction as (type text meta[
-            Documentation.AllowedValues = Consol_DataAccessMethods
-            ]), 
+        DataAccessFunction as function,
         optional SourceFolder as (type text), 
-        optional FilterFileNameFrom as (type text),
-        optional FilterFileNameTo as (type text), 
+        optional FilterFromValue as (type text),
+        optional FilterToValue as (type text), 
         optional IsDevMode as (type logical)  
         )
         as table meta [
