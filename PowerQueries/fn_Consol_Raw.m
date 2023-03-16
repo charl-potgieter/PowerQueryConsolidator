@@ -18,7 +18,7 @@ let
     //------------------------------------------------------------------------------
     
     DataAccessFunction = fn_ExcelFirstSheet,
-    SourceFolder = "D:\Onedrive\Documents_Charl\Computer_Technical\Programming_GitHub\PowerQueryConsolidator\Testing\Test_Consolidation\Test_Consolidation_Years\",
+    SourceFolder = "TBA",
     DataSchema = Table.SelectRows(ConsolidationDataSchema, each [DataSource] = "StandardTest"),
     FilterFromValue = 2017,
     FilterToValue = 2018,
