@@ -3,6 +3,7 @@
 *.xlam
 *.pdf
 *.csv
+*.zip
 Test*
 test*
 AddInsforGithub/*
