@@ -33,6 +33,20 @@ let
 
 
         //------------------------------------------------------------------------------
+        //        DataSchema
+        //------------------------------------------------------------------------------
+
+        SchemaSource = Excel.Workbook(File.Contents(SchemaFilePath), null, true),
+        SchemaTable  = SchemaSource{[Item = "tbl_DataSchema", Kind="Table"]}[Data],
+        SchemaFilterOutNonUtilisedFields = Table.SelectRows(SchemaTable, each ([FieldName] <> null)),
+        SchemaUnpivot = Table.UnpivotOtherColumns(SchemaFilterOutNonUtilisedFields, {"FieldName", "FieldTypeAsText"}, "DataSource", "OriginalFieldName"),
+        SchemaChangeType = Table.TransformColumnTypes(SchemaUnpivot,{{"FieldName", type text}, {"FieldTypeAsText", type text}, {"DataSource", type text}, {"OriginalFieldName", type text}}),
+        SchemaFiltered = Table.SelectRows(SchemaChangeType, each [DataSource] = DataSourceName),
+        DataSchema = SchemaFiltered,
+
+
+
+        //------------------------------------------------------------------------------
         //        Get folder contents and apply filters
         //------------------------------------------------------------------------------
 
@@ -61,20 +75,6 @@ let
 
 
         //------------------------------------------------------------------------------
-        //        DataSchema
-        //------------------------------------------------------------------------------
-
-        SchemaSource = Excel.Workbook(File.Contents(SchemaFilePath), null, true),
-        SchemaTable  = SchemaSource{[Item = "tbl_DataSchema", Kind="Table"]}[Data],
-        SchemaFilterOutNonUtilisedFields = Table.SelectRows(SchemaTable, each ([FieldName] <> null)),
-        SchemaUnpivot = Table.UnpivotOtherColumns(SchemaFilterOutNonUtilisedFields, {"FieldName", "FieldTypeAsText"}, "DataSource", "OriginalFieldName"),
-        SchemaChangeType = Table.TransformColumnTypes(SchemaUnpivot,{{"FieldName", type text}, {"FieldTypeAsText", type text}, {"DataSource", type text}, {"OriginalFieldName", type text}}),
-        SchemaFiltered = Table.SelectRows(SchemaChangeType, each [DataSource] = DataSourceName),
-        DataSchema = SchemaFiltered,
-
-
-
-        //------------------------------------------------------------------------------
         //        Restrict to one file in Dev mode
         //------------------------------------------------------------------------------
 
@@ -85,16 +85,15 @@ let
             else 
                 ApplyFilterTo,
 
+
+
+        //------------------------------------------------------------------------------
+        //        Get data tables, expand and restrict to 100 entries if in Dev mode
+        //------------------------------------------------------------------------------
+
+
         AddTableColumn = Table.AddColumn(DevMode_FilterOneFile, "tbl", each DataAccessFunction([Folder Path], [Name]), type table),
         ColumnNames = Table.ColumnNames(AddTableColumn[tbl]{0}),
-
-
-
-
-        //------------------------------------------------------------------------------
-        //        Expand and restrict to 100 entries if in Dev mode
-        //------------------------------------------------------------------------------
-
         ExpandedRawData = Table.ExpandTableColumn(AddTableColumn, "tbl", ColumnNames, ColumnNames),
         DevMode_RestrictReturnedRecords =  if IsDevMode is null then
                 ExpandedRawData
@@ -153,12 +152,43 @@ let
 
         AddTypeColToDataSchema = Table.AddColumn(DataSchema, "FieldType", each Expression.Evaluate([FieldTypeAsText], #shared), type type),
         FieldTypePairs = List.Zip({AddTypeColToDataSchema[FieldName], AddTypeColToDataSchema[FieldType]}),
-        TransformColTypes = Table.TransformColumnTypes(SelectCols, FieldTypePairs)
+        TransformColTypes = Table.TransformColumnTypes(SelectCols, FieldTypePairs),
 
+
+
+        //------------------------------------------------------------------------------
+        //        Check for missing and extra fields in data compared to schema
+        //------------------------------------------------------------------------------
+       
+        FieldsInDataNotSchema = Table.RowCount(
+            fn_FieldNamesDataVersusSchemaCheck(
+                DataAccessFunction, 
+                SourceFolder, 
+                SchemaFilePath, 
+                DataSourceName, 
+                "Fields in data not in schema")
+            ) <> 0,
+
+        FieldsInSchemaNotData = Table.RowCount(
+            fn_FieldNamesDataVersusSchemaCheck(
+                DataAccessFunction, 
+                SourceFolder, 
+                SchemaFilePath, 
+                DataSourceName, 
+                "Fields in schema not in data")
+            ) <> 0,        
+
+
+        CheckDataFields = if FieldsInDataNotSchema then
+                error "Error, fields exist in data but not schema, run fn_FieldNamesDataVersusSchemaCheck to identify items."
+            else if FieldsInSchemaNotData then
+                error "Error, fields exist in schema but not data, run fn_FieldNamesDataVersusSchemaCheck to identify items."
+            else
+                TransformColTypes         
 
 
     in
-        TransformColTypes,   //End of Raw function ex-metadata
+        CheckDataFields,   //End of Raw function ex-metadata
 
 
 
@@ -186,6 +216,8 @@ let
 
 
     ReturnValue = Value.ReplaceType(fn_Consol_Raw, CustomFunctionType)
+
+
 
 
 in

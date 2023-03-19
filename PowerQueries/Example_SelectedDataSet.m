@@ -1,0 +1,1 @@
+"01_GoodData" meta [IsParameterQuery=true, List={"01_GoodData", "02_AdditionalFieldsInData", "03_MissingFieldsInData"}, DefaultValue="01_GoodData", Type="Text", IsParameterQueryRequired=true]
