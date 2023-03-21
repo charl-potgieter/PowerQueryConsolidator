@@ -71,6 +71,9 @@ let
                 Table.SelectRows(ApplyFilterFrom, each Text.Start([Name], Text.Length(FilterToText))<=FilterToText)    
             else
                 ApplyFilterFrom,
+                
+        //Prefix folder contents columns to avoid potential name conflicts with underlying data
+        PrefixCols = Table.PrefixColumns(ApplyFilterTo, "PQ.Consol"),
 
 
 
@@ -79,11 +82,11 @@ let
         //------------------------------------------------------------------------------
 
         DevMode_FilterOneFile = if IsDevMode is null then
-                ApplyFilterTo
+                PrefixCols
             else if IsDevMode then 
-                Table.FirstN(ApplyFilterTo, 1) 
+                Table.FirstN(PrefixCols, 1) 
             else 
-                ApplyFilterTo,
+                PrefixCols,
 
 
 
@@ -92,7 +95,7 @@ let
         //------------------------------------------------------------------------------
 
 
-        AddTableColumn = Table.AddColumn(DevMode_FilterOneFile, "tbl", each DataAccessFunction([Folder Path], [Name]), type table),
+        AddTableColumn = Table.AddColumn(DevMode_FilterOneFile, "tbl", each DataAccessFunction([PQ.Consol.Folder Path], [PQ.Consol.Name]), type table),
         ColumnNames = Table.ColumnNames(AddTableColumn[tbl]{0}),
         ExpandedRawData = Table.ExpandTableColumn(AddTableColumn, "tbl", ColumnNames, ColumnNames),
         DevMode_RestrictReturnedRecords =  if IsDevMode is null then
@@ -124,6 +127,7 @@ let
         in
 
             ReturnValue,
+
         AddCalcCols = List.Accumulate(CalcColZipList, DevMode_RestrictReturnedRecords, AccumulatorFunction),
 
 
@@ -209,7 +213,7 @@ let
             Documentation.Name =  "fn_Consolidation", 
             Documentation.LongDescription = "Consolidates file in a folder, selects columns, sets types.", 
             Documentation.Examples = {[
-                Description =  "www.powernumerics.com/tba" , 
+                Description =  "Please visit https://github.com/charl-potgieter/PowerQueryConsolidator for documentation" , 
                 Code = "", 
                 Result = ""]}
         ],
