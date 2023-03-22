@@ -5,16 +5,11 @@ let
         else
             Example_DataRootFolder,
 
-    DataSourceName = if Example_SelectedDataSet = "04_NameConflict" then
-            "Name conflict"
-        else
-            "Standard data",
-
     Source = fn_Consolidation(
         fn_ExcelFirstSheet,
         Example_DataRootFolderAdjusted & Example_SelectedDataSet,
         Example_SchemaFilePath,
-        DataSourceName,
+        "Standard data",
         2017,
         2018,
         false)

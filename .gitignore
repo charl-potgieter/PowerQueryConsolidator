@@ -6,4 +6,6 @@
 *.zip
 Test*
 test*
+Temp*
+temp*
 AddInsforGithub/*

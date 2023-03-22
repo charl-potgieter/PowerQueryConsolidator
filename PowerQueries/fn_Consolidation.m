@@ -25,7 +25,7 @@ let
         DataAccessFunction = fn_ExcelFirstSheet,
         SourceFolder = "",
         SchemaFilePath = "",
-        DataSourceName = "StandardTest",
+        DataSourceName = "Standard data",
         FilterFromValue = 2017,
         FilterToValue = 2018,
         IsDevMode = true,
@@ -38,12 +38,20 @@ let
 
         SchemaSource = Excel.Workbook(File.Contents(SchemaFilePath), null, true),
         SchemaTable  = SchemaSource{[Item = "tbl_DataSchema", Kind="Table"]}[Data],
-        SchemaFilterOutNonUtilisedFields = Table.SelectRows(SchemaTable, each ([FieldName] <> null)),
-        SchemaUnpivot = Table.UnpivotOtherColumns(SchemaFilterOutNonUtilisedFields, {"FieldName", "FieldTypeAsText"}, "DataSource", "OriginalFieldName"),
+        SchemaUnpivot = Table.UnpivotOtherColumns(SchemaTable, {"FieldName", "FieldTypeAsText"}, "DataSource", "OriginalFieldName"),
         SchemaChangeType = Table.TransformColumnTypes(SchemaUnpivot,{{"FieldName", type text}, {"FieldTypeAsText", type text}, {"DataSource", type text}, {"OriginalFieldName", type text}}),
-        SchemaFiltered = Table.SelectRows(SchemaChangeType, each [DataSource] = DataSourceName),
-        DataSchema = SchemaFiltered,
+        SchemaFilteredOnDataSource = Table.SelectRows(SchemaChangeType, each [DataSource] = DataSourceName),
+        SchemaFilterOutNonUtilisedFields = Table.SelectRows(SchemaFilteredOnDataSource, each ([FieldName] <> null)),
+        DataSchema = SchemaFilterOutNonUtilisedFields,
 
+        //Below is utilised to delete unused fields later in the process
+        DataSchemaUnusedFields = Table.SelectRows(SchemaFilteredOnDataSource, each [FieldName] = null)[OriginalFieldName],
+
+        //Below is used for error checking before returning final output
+        DataSchemaOriginalFieldName = Table.SelectRows(SchemaFilteredOnDataSource, each Text.Start([OriginalFieldName], 1) <> "<")[OriginalFieldName],
+        DataSchemaFieldNames = SchemaFilterOutNonUtilisedFields[FieldName],
+        DataSchemaOriginalFieldNamesAreUnique = List.Count(DataSchemaOriginalFieldName) = List.Count(List.Distinct(DataSchemaOriginalFieldName)),
+        DataSchemaFieldNamesAreUnique = List.Count(DataSchemaFieldNames) = List.Count(List.Distinct(DataSchemaFieldNames)),
 
 
         //------------------------------------------------------------------------------
@@ -131,6 +139,13 @@ let
         AddCalcCols = List.Accumulate(CalcColZipList, DevMode_RestrictReturnedRecords, AccumulatorFunction),
 
 
+        //------------------------------------------------------------------------------
+        //        Delete unused fields in data
+        //------------------------------------------------------------------------------
+
+        // Need to do this before rename in the evenyt a rename causes a name conflict with an unused field
+        RemoveUnusedDataFields = Table.RemoveColumns(AddCalcCols, DataSchemaUnusedFields),
+        
 
         //------------------------------------------------------------------------------
         //        Change field names
@@ -139,15 +154,17 @@ let
         FilterOutCalculatedFields = Table.SelectRows(DataSchema, each Text.Start([OriginalFieldName],1) <> "<"),
         FilterFieldNamesToChange = Table.SelectRows(FilterOutCalculatedFields, each [FieldName] <> [OriginalFieldName]),
         FieldNameChangePairs = List.Zip({FilterFieldNamesToChange[OriginalFieldName], FilterFieldNamesToChange[FieldName]}),
-        ChangeFieldNames = Table.RenameColumns(AddCalcCols, FieldNameChangePairs),
+        ChangeFieldNames = Table.RenameColumns(RemoveUnusedDataFields, FieldNameChangePairs),
 
         
         //------------------------------------------------------------------------------
-        //        Select Cols
+        //        Select and reorder Cols
         //------------------------------------------------------------------------------
 
-        ColsToSelect = DataSchema[FieldName],
-        SelectCols = Table.SelectColumns(ChangeFieldNames, ColsToSelect),
+        //Even though unused data columns are deleted above the columns returned by Folder.Files(...) also
+        //need to be deleted.   Below action also re-orders
+        ColsToSelectAndReorder = DataSchema[FieldName],
+        SelectAndReorderCols = Table.SelectColumns(ChangeFieldNames, ColsToSelectAndReorder),
 
 
         //------------------------------------------------------------------------------
@@ -156,7 +173,7 @@ let
 
         AddTypeColToDataSchema = Table.AddColumn(DataSchema, "FieldType", each Expression.Evaluate([FieldTypeAsText], #shared), type type),
         FieldTypePairs = List.Zip({AddTypeColToDataSchema[FieldName], AddTypeColToDataSchema[FieldType]}),
-        TransformColTypes = Table.TransformColumnTypes(SelectCols, FieldTypePairs),
+        TransformColTypes = Table.TransformColumnTypes(SelectAndReorderCols, FieldTypePairs),
 
 
 
@@ -183,7 +200,11 @@ let
             ) <> 0,        
 
 
-        CheckDataFields = if FieldsInDataNotSchema then
+        ErrorChecks = if not DataSchemaOriginalFieldNamesAreUnique then
+                error "Original field names in the schema are not unique"
+            else if not DataSchemaFieldNamesAreUnique then
+                error "Data field names in schema are not unique"
+           else if FieldsInDataNotSchema then
                 error "Error, fields exist in data but not schema, run fn_FieldNamesDataVersusSchemaCheck to identify items."
             else if FieldsInSchemaNotData then
                 error "Error, fields exist in schema but not data, run fn_FieldNamesDataVersusSchemaCheck to identify items."
@@ -192,7 +213,7 @@ let
 
 
     in
-        CheckDataFields,   //End of Raw function ex-metadata
+        ErrorChecks,   //End of Raw function ex-metadata
 
 
 
