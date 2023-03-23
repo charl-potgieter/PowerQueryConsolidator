@@ -5,10 +5,7 @@ let
         else
             Example_DataRootFolder,
 
-    DataSourceName = if Example_SelectedDataSet = "04_NameConflict" then
-            "Name conflict"
-        else
-            "Standard data",
+    DataSourceName = "Standard data",
 
 
     ReturnTable = fn_FieldNamesDataVersusSchemaCheck(
